@@ -1,0 +1,306 @@
+Debug::MessageArray version 0.10
+=========================
+
+NAME
+    Debug::MessageArray -- A module for setting and returning messages such
+    as errors, warnings, and notes.
+
+SYNOPSIS
+     use Debug::MessageArray ':all';
+
+     # clear all messages
+     clear_global_messages();
+
+     # add an error to the global array
+     add_error('Filehandle not open');
+
+     # show errors
+     output_errors_html();
+
+     # many other functions and features
+
+DESCRIPTION
+    This module was created with the idea that a function might produce any
+    number of errors or other messages, not just one. This function uses a
+    set of global arrays to store messages from functions.
+
+    There are three types of messages. Errors are for when something went
+    wrong and the function call didn't work out. Warnings are for when
+    something suspicious happened that the programmer or user needs to know
+    about, but there wasn't actually an error. Notes are for when nothing at
+    all is wrong, but the programmer or user ought to know something.
+
+    The word "message" is used to indicate a generic object that could be an
+    error, warning, or note.
+
+    The basic idea is that your code adds a message at any point where it
+    needs to be added. Later, when appropriate, your code displays those
+    messages.
+
+    For example, the following code adds an error message to the global
+    array:
+
+     add_error("Could not open file handle");
+
+    Later, at some other point far removed from where the error happened,
+    you can display any errors:
+
+     show_errors();
+
+    To clear messages, call "clear_global_messages()":
+
+     clear_global_messages();
+
+    That's the basic idea. Everything else is a refinement. There are a lot
+    of refinements, so read on for details with each function.
+
+SITE OBJECT
+    "Debug::MessageArray" provides a system by which your code can add
+    messages using IDs instead of text. This can be useful for situations
+    where the messages might be output in different languages or you want to
+    be able to change the text of a message in a single place but the
+    message is created in many places in your code.
+
+    This objective is achieved with the use of a "site" object that you
+    provide. Your site object simply has to provide three methods:
+    "$site-"get_message_text()> and "$site-"get_message_html()>, and
+    "process_message_tag()". Each of those methods will get a single
+    argument, the ID of a message. Given that ID, the site object should be
+    able to return either text or HTML for the given ID.
+
+    For example, consider the following Perl class. This class allows
+    messages to be displayed in either English or Spanish:
+
+     package SiteClass;
+     use strict;
+     use Debug::ShowStuff ':all';
+     use Carp 'croak';
+
+     # hash of message by language
+     my $messages = {};
+     $messages->{'en'} = {};
+     $messages->{'es'} = {};
+
+     # English: cannot open file handle
+     $messages->{'en'}->{'no-new-file-handle'} = {
+          text => 'Cannot open *new* file handle',
+          html => 'Cannot open <em>new</em> file handle',
+     };
+
+     # English: no permission
+     $messages->{'en'}->{'no-permission'} = {
+          text => 'Do not have permission',
+     };
+
+     # Spanish: cannot open file handle
+     $messages->{'es'}->{'no-new-file-handle'} = {
+         text => 'No se puede abrir el archivo de *nuevo* mango',
+          html => 'No se puede abrir el archivo de <em>nuevo</em> mango',
+     };
+
+     # Spanish: no permission
+     $messages->{'es'}->{'no-permission'} = {
+          text => 'No tiene permiso',
+     };
+
+     sub new {
+          my ($class, $lang) = @_;
+
+         # must have language
+         defined($lang) or croak 'must have language';
+
+          # return blessed object
+          return bless {lang=>$lang}, $class;
+     }
+
+     sub get_message_text {
+          my ($site, $msg) = @_;
+          my $definition = $messages->{$site->{'lang'}}->{$msg->{'id'}};
+
+          if (! $definition)
+               { croak qq|do not have message id "$msg->{'id'}"| }
+
+          return $definition->{'text'};
+     }
+
+     sub get_message_html {
+          my ($site, $msg) = @_;
+          my ($definition, $str);
+          $definition = $messages->{$site->{'lang'}}->{$msg->{'id'}};
+
+          if (! $definition)
+               { croak qq|do not have message id "$msg->{'id'}"| }
+
+          # get HTML if available
+          if (defined $definition->{'html'}) {
+               $str = $definition->{'html'};
+          }
+
+          # use text if available
+          else {
+               $str = $definition->{'text'};
+
+               $str =~ s|\&|&amp;|g;
+               $str =~ s|\"|&quot;|g;
+               $str =~ s|\<|&lt;|g;
+               $str =~ s|\>|&gt;|g;
+          }
+
+          # return
+          return $str;
+     }
+
+    The following script uses "DEBUG::MessageArray" and a SiteClass object
+    to display the same set of messages in Engligh and in Spanish:
+
+     #!/usr/bin/perl -w
+     use strict;
+     use Debug::MessageArray ':all';
+     require './SiteClass.pm';
+
+     # variables
+     my ($site);
+
+     # instantiate site object, setting it to English
+     $site = SiteClass->new('en');
+
+     # create some errors
+     add_error(id=>'no-new-file-handle');
+     add_error(id=>'no-permission');
+
+     # show errors in English
+     print "show errors in English\n";
+     show_errors(site=>$site);
+
+     # Change site object to Spanish, then show errors in Enligh
+     print "show errors in Spanish\n";
+     $site->{'lang'} = 'es';
+     show_errors(site=>$site);
+
+    This code will produce the following output:
+
+     show errors in English
+     * Cannot open *new* file handle
+     * Do not have permission
+     show errors in Spanish
+     * No se puede abrir el archivo de *nuevo* mango
+     * No tiene permiso
+
+    method: process_message_tag()
+
+    "process_message_tag()" provides the ability to return a string based on
+    a message tag. "process_message_tag()" gets three parameters: the
+    message site object, the message object, the tag that was sent
+    (including tag name) and parameters, and the type of media being output
+    (text or HTML).
+
+    "process_message_tag()" is not required. It will only be called if the
+    site object has such a method.
+
+FUNCTIONS
+  clear_global_messages()
+    Clears the global messages arrays.
+
+  errors, warnings, messages
+    Returns one of the global arrays of messages.
+
+  add_error, add_warning, add_note
+    "add_error()", "add_message()" and "add_note()" add a single message to
+    their respective global arrays.
+
+    NOTE: We'll use "add_error()" in these examples. "add_message()" and
+    "add_note()" work exactly the same way.
+
+    In its simplest use, call "add_error()" with a single text parameter:
+
+     add_error('Unable to open file handle');
+
+    "add_error()" returns a hash reference containing the text of the
+    message. This hashref is the object that is stored in the global array.
+    The message above would look like this:
+
+     {
+        text => 'Unable to open file handle',
+     }
+
+    You can also pass in the parameters as a hash. the "text" element
+    provides the text for the error. For example, the following code
+    accomplishes exactly the same thing as the example above:
+
+     add_error(text => 'Unable to open file handle');
+
+    The following sections explain the various options for calling
+    "add_error()".
+
+    option: text
+
+    Provides the text for the message. For example, this call adds an error
+    with some text:
+
+     add_error(text => 'Unable to open file handle');
+
+    option: html
+
+    Provides and HTML version of the message. If you use the "html" param
+    you should also always use the "text" param for when the message isn't
+    displayed in a web environment. For example, the following code adds a
+    message with a text and an HTML version:
+
+     add_error(
+        text => 'Unable to open *new* file handle',
+        html => 'Unable to open <em>new<em> file handle',
+     );
+
+    If an HTML version of the message isn't displayed, and the message
+    should be displayed in a web environment, then the text version is
+    HTML-escaped and displayed.
+
+    option: id
+
+    The "id" param can be used instead of "text" and "html" for situations
+    where your code can later provide text and/or HTML for a given id. See
+    below for an explanation of the site object see the "SITE OBJECT"
+    documentation above.
+
+  any_errors(), any_warnings(), any_notes()
+    Returns true if there are errors/warnings/notes, false otherwise.
+
+  errors_text(), errors_text(), errors_text()
+    Prints to STDOUT the errors/warnings/notes as text.
+
+    "option:" site
+
+    If the "site" parameter is sent, then each message must have an 'id'
+    element. See the "SITE OBJECT" section above for an explanation of how
+    site objects and message IDs work. If any message object has just an
+    'id' property, but no site object is sent then an error will occur.
+
+  output_errors_html(), output_warnings_html(), output_notes_html()
+    Prints to STDOUT the errors/warnings/notes as HTML. For each message, if
+    Works like errors_html/warnings_html/notes_html except outputs HTML. If
+    there is an 'html' property then that is output. Otherwise the text
+    property is HTML-escaped and output.
+
+xml_to_messages($raw_xml)
+    Parses a standed MessageArray XML document, add messages to appropriate
+    array.
+
+  add_dbi_err()
+    If there is a DBI error, adds it to the errors array and returns true
+    (meaning there was an error). Else returns false.
+
+    Takes no params.
+
+TERMS AND CONDITIONS
+    Copyright (c) 2010 by Miko O'Sullivan. All rights reserved. This program
+    is free software; you can redistribute it and/or modify it under the
+    same terms as Perl itself. This software comes with NO WARRANTY of any
+    kind.
+
+AUTHORS
+    Miko O'Sullivan miko@idocs.com
+
+VERSION
+    Version 0.10 November 7, 2010
+        Initial release.
+
