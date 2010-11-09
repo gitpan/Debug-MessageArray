@@ -4,10 +4,13 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
 	'NAME'            => "Debug::MessageArray",
 	'VERSION_FROM'    => "MessageArray.pm", # finds $VERSION
-	'PREREQ_PM'       => {Data::Default => 0.1,
-	String::Util => 1.01,
-	Digest::MD5 => 2.36,
-	Debug::ShowStuff => 1.1}, # e.g., Module::Name => 1.1
+	'PREREQ_PM'       => {
+		'Data::Default' => 0.1,
+		'String::Util' => 1.01,
+		'Digest::MD5' => 2.36,
+		'Debug::ShowStuff' => 1.1,
+		'XML::Parser' => 2.34,
+	}, # e.g., Module::Name => 1.1
 	
 	# Add these new keywords supported since 5.005
 	(

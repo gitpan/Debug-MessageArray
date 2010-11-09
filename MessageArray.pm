@@ -8,7 +8,7 @@ use Digest::MD5 'md5_base64';
 
 # version
 use vars '$VERSION';
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 # GLOBALS
 our @errors;
@@ -1136,6 +1136,10 @@ F<miko@idocs.com>
 =item Version 0.10    November 7, 2010
 
 Initial release.
+
+=item Version 0.11    November 8, 2010
+
+Fixing bug in Makefile.  Did not list XML::Parser as a prerequisite.
 
 =back
 
